@@ -169,6 +169,6 @@ for country_code, table_name in countries.items():
         chunksize=1000
     )
 
-    print(f"✅ {table_name} loaded successfully")
+    print(f" {table_name} loaded successfully")
 
-print("\n🎉 ALL COUNTRIES INGESTED SUCCESSFULLY")
+print("\n ALL COUNTRIES INGESTED SUCCESSFULLY")
