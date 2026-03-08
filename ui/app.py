@@ -5,7 +5,8 @@ from data_loader import load_data
 
 st.set_page_config(page_title="YouTube Trending Dashboard", layout="wide")
 
-# ---------- HELPER FUNCTION ----------
+
+# ---------------- FORMAT NUMBERS ----------------
 def format_number(n):
     if n >= 1_000_000:
         return f"{n/1_000_000:.1f}M"
@@ -14,24 +15,64 @@ def format_number(n):
     else:
         return str(int(n))
 
-# ---------- NAVIGATION ----------
+
+# ---------------- NAVIGATION ----------------
 page = st.sidebar.radio("Navigation", ["Dashboard", "Predict"])
 
-# =====================================================
-# ===================== DASHBOARD =====================
-# =====================================================
+
+# =================================================
+# ================= DASHBOARD =====================
+# =================================================
 if page == "Dashboard":
 
     df = load_data()
 
     st.title("YouTube Trending Analytics Dashboard")
 
-    # ---------- FILTERS ----------
+    # ------------------------------------------------
+    # CREATE COUNTRY COLUMN (for will_trend logic)
+    # ------------------------------------------------
+    df["country"] = df["video_trending_country"]
+
+    # ------------------------------------------------
+    # CREATE WILL_TREND COLUMN (training logic)
+    # ------------------------------------------------
+    INDIA_BASE_VIEWS = 100000
+
+    country_median_views = (
+    df.groupby("country")["video_view_count"]
+    .median()
+    )   
+
+    # detect India automatically
+    if "IN" in country_median_views.index:
+        india_median = country_median_views.loc["IN"]
+    elif "India" in country_median_views.index:
+        india_median = country_median_views.loc["India"]
+    else:
+        india_median = country_median_views.median()
+
+    scaling_factor = country_median_views / india_median
+
+    view_th = scaling_factor * INDIA_BASE_VIEWS
+
+    like_th = df.groupby("country")["video_like_count"].median()
+    comment_th = df.groupby("country")["video_comment_count"].median()
+
+    df["will_trend"] = (
+        (df["video_view_count"] >= df["country"].map(view_th)) &
+        (df["video_like_count"] >= df["country"].map(like_th)) &
+        (df["video_comment_count"] >= df["country"].map(comment_th))
+    ).astype(int)
+
+    # ------------------------------------------------
+    # FILTERS
+    # ------------------------------------------------
     st.sidebar.header("Filters")
 
     country = st.sidebar.selectbox(
         "Trending Country",
-        ["All"] + sorted(df["video_trending_country"].dropna().unique())
+        ["All"] + sorted(df["country"].dropna().unique())
     )
 
     category = st.sidebar.selectbox(
@@ -43,7 +84,7 @@ if page == "Dashboard":
 
     if country != "All":
         filtered_df = filtered_df[
-            filtered_df["video_trending_country"] == country
+            filtered_df["country"] == country
         ]
 
     if category != "All":
@@ -51,23 +92,34 @@ if page == "Dashboard":
             filtered_df["video_category_id"] == category
         ]
 
-    # ---------- UNIQUE VIDEO DATA ----------
-    unique_videos = filtered_df.drop_duplicates("video_id")
+    # ------------------------------------------------
+    # APPLY WILL_TREND
+    # ------------------------------------------------
+    trending_df = filtered_df[
+        filtered_df["will_trend"] == 1
+    ]
+
+    unique_videos = trending_df.drop_duplicates("video_id")
 
     avg_views = unique_videos["video_view_count"].mean()
     avg_likes = unique_videos["video_like_count"].mean()
 
-    # ---------- KPI CARDS ----------
+    # ------------------------------------------------
+    # KPI CARDS
+    # ------------------------------------------------
     k1, k2, k3, k4 = st.columns(4)
 
     k1.metric("Trending Videos", format_number(len(unique_videos)))
     k2.metric("Avg Views", format_number(avg_views))
     k3.metric("Avg Likes", format_number(avg_likes))
-    k4.metric("Unique Channels", format_number(unique_videos["channel_title"].nunique()))
+    k4.metric(
+        "Unique Channels",
+        format_number(unique_videos["channel_title"].nunique())
+    )
 
-    # =====================================================
+    # =================================================
     # CATEGORY ANALYSIS
-    # =====================================================
+    # =================================================
     col1, col2 = st.columns(2)
 
     with col1:
@@ -105,11 +157,11 @@ if page == "Dashboard":
             st.plotly_chart(fig2, use_container_width=True)
 
         else:
-            st.info("Only one category selected.")
+            st.info("Only one category selected")
 
-    # =====================================================
-    # CHANNEL & COUNTRY ANALYSIS
-    # =====================================================
+    # =================================================
+    # CHANNEL ANALYSIS
+    # =================================================
     col3, col4 = st.columns(2)
 
     with col3:
@@ -136,25 +188,25 @@ if page == "Dashboard":
     with col4:
 
         country_counts = (
-            unique_videos["video_trending_country"]
+            trending_df["country"]
             .value_counts()
             .reset_index()
         )
 
-        country_counts.columns = ["Country", "Videos"]
+        country_counts.columns = ["Country", "Trending Videos"]
 
         fig4 = px.bar(
             country_counts,
             x="Country",
-            y="Videos",
-            title="Trending Videos by Country"
+            y="Trending Videos",
+            title="Videos Predicted to Trend by Country"
         )
 
         st.plotly_chart(fig4, use_container_width=True)
 
-    # =====================================================
+    # =================================================
     # ENGAGEMENT ANALYSIS
-    # =====================================================
+    # =================================================
     col5, col6 = st.columns(2)
 
     with col5:
@@ -163,7 +215,7 @@ if page == "Dashboard":
             unique_videos,
             x="video_view_count",
             y="video_like_count",
-            color="video_trending_country",
+            color="country",
             title="Views vs Likes",
             labels={
                 "video_view_count": "Views",
@@ -179,37 +231,40 @@ if page == "Dashboard":
             unique_videos,
             x="video_view_count",
             nbins=40,
-            title="Views Distribution",
-            labels={"video_view_count": "Views"}
+            title="Views Distribution"
         )
 
         st.plotly_chart(fig6, use_container_width=True)
 
-    # =====================================================
+    # =================================================
     # TRENDING TIMELINE
-    # =====================================================
-    if "video_trending_date" in filtered_df.columns:
+    # =================================================
+    if "video_trending_date" in trending_df.columns:
 
-        filtered_df["video_trending_date"] = pd.to_datetime(
-            filtered_df["video_trending_date"]
+        trending_df["video_trending_date"] = pd.to_datetime(
+            trending_df["video_trending_date"]
         )
 
-        timeline = filtered_df.groupby(
-            filtered_df["video_trending_date"].dt.date
+        timeline = trending_df.groupby(
+            trending_df["video_trending_date"].dt.date
         ).size()
 
         fig7 = px.line(
             x=timeline.index,
             y=timeline.values,
             title="Trending Videos Over Time",
-            labels={"x": "Date", "y": "Trending Videos"}
+            labels={
+                "x": "Date",
+                "y": "Trending Videos"
+            }
         )
 
         st.plotly_chart(fig7, use_container_width=True)
 
-# =====================================================
-# ===================== PREDICT PAGE ==================
-# =====================================================
+
+# =================================================
+# ================= PREDICT PAGE ==================
+# =================================================
 elif page == "Predict":
 
     import prediction
