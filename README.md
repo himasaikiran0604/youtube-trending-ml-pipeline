@@ -131,27 +131,26 @@ Each dataset contains video metadata, channel statistics, and engagement metrics
 
 # Interactive Dashboard
 
-A **multi-page Streamlit dashboard** was developed to explore the dataset and model predictions.
-
 Dashboard features include:
 
-### Prediction
-Predict trending probability for a new video.
-
-### Category Analytics
+### Trending Videos by Category
 Trending distribution across video categories.
+
+### Category Share
+All Categories pie chart
 
 ### Country Analytics
 Trending patterns across different countries.
 
-### Top Channels
-Channels that appear most frequently in trending lists.
+### Videos Predicted to Trend by Country
+Trending Videos distribution by Country
+
+### Views vs Likes
 
 ### Views Distribution
-Distribution of views among trending videos.
 
-### Category vs Country Heatmap
-Category popularity across regions.
+# Prediction
+Predicts percentage of the video to get in the trending by using the features
 
 ---
 
@@ -161,8 +160,13 @@ Category popularity across regions.
 youtube-trending-ml-pipeline
 │
 ├── dataset_csv_files
-│
+├──accesing_from_database
+|  ├── database_accessing.ipynb
 ├── model
+|   ├── final_model.ipynb
+|   ├── clip_values.pkl
+|   ├── ohe.pkl
+|   ├── urgency.pkl
 │   ├── text_lr.pkl
 │   ├── text_scaler.pkl
 │   ├── rf_calibrated.pkl
@@ -170,18 +174,13 @@ youtube-trending-ml-pipeline
 │   ├── psych_scaler.pkl
 │   └── meta_lr.pkl
 │
-├── predictor.py
+├── pushing_into_database
+|   ├── data_ingestion_api_v3.py
 ├── insert_will_trend.py
 │
 ├── ui
 │   ├── app.py
 │   ├── data_loader.py
-│   └── pages
-│       ├── category_analytics.py
-│       ├── country_analytics.py
-│       ├── category_country_heatmap.py
-│       ├── top_channels.py
-│       └── views_distribution.py
 │
 └── README.md
 ```
@@ -199,6 +198,7 @@ youtube-trending-ml-pipeline
 - Matplotlib
 - Seaborn
 - Joblib
+- Plotly
 
 ---
 
