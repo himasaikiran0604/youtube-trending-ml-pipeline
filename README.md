@@ -83,31 +83,127 @@ Model used:
 
 ---
 
-## 4. Meta Model (Stacking)
+## 4. Stacking Ensemble Architecture
 
-Outputs from the three models are combined using:
+The prediction system is built using a **stacked ensemble learning architecture** that combines multiple machine learning models, each designed to capture different aspects of YouTube video virality. Instead of relying on a single model, the pipeline first generates predictions from three specialized models and then combines those predictions using a **Logistic Regression meta model** to produce the final trending probability.
 
-**Logistic Regression Stacking**
+This design improves performance because each model focuses on a different type of signal: **semantic content, channel authority, and psychological engagement cues**.
 
-Final output:
+---
+
+### Text Model (Content Understanding)
+
+The first model analyzes the **semantic meaning of video metadata** using a multilingual transformer model.
+
+Inputs used for this model include:
+
+- Video Title  
+- Video Description  
+- Video Tags  
+- Channel Title  
+
+These text fields are combined and converted into contextual embeddings using the **LaBSE (Language-agnostic BERT Sentence Embedding) transformer model**. LaBSE captures deep semantic relationships between words and phrases across multiple languages, allowing the system to understand how video titles and descriptions may influence audience interest.
+
+The generated embeddings are normalized and passed to a **Logistic Regression classifier**, which learns patterns between textual content and the probability of a video trending.
+
+Output produced by this model:
 
 ```
-Trending Probability Score
+Text Probability Score
+```
+
+This score represents how likely a video is to trend **based on the semantic meaning of its textual metadata**.
+
+---
+
+### Numeric / Channel Model (Channel Authority & Engagement)
+
+The second model captures **channel strength and engagement behavior**, which are strong indicators of whether a video can trend.
+
+This model uses engineered features derived from channel statistics and video characteristics, including:
+
+- Log-transformed video duration  
+- Log subscriber count  
+- Log channel view count  
+- Channel authority score  
+- Views per video ratio  
+- Subscribers per video ratio  
+- Legacy channel indicator  
+- Video upload volume bucket  
+- Video category  
+- Country of upload  
+
+Categorical features such as **video category and country** are encoded using one-hot encoding and combined with the numerical features.
+
+A **Random Forest classifier** is then trained on these features. Random Forest is effective at capturing **nonlinear relationships between channel authority, engagement metrics, and trending probability**.
+
+To improve the reliability of predicted probabilities, the model predictions are calibrated using **probability calibration techniques**.
+
+Output produced by this model:
+
+```
+Numeric Probability Score
+```
+
+This score represents how likely a video is to trend **based on channel influence and engagement statistics**.
+
+---
+
+### Psychological Signal Model (Virality Signals)
+
+The third model focuses on **content psychology signals** that often drive viral engagement on platforms like YouTube.
+
+This model extracts features from video titles and descriptions that indicate audience engagement triggers such as:
+
+- Urgency keywords (e.g., breaking, update)  
+- Hype-related words (e.g., viral, massive)  
+- Official announcement signals  
+- Emotional tone indicators  
+- Presence of numbers in titles  
+- Question marks or exclamation marks  
+- Overlap between title and description  
+
+These features capture how creators structure content to attract viewer attention.
+
+The extracted features are standardized and used to train a **Logistic Regression classifier**, which outputs a probability score representing the psychological virality potential of the content.
+
+Output produced by this model:
+
+```
+Psychology Probability Score
 ```
 
 ---
 
-# Model Performance
+### Meta Model (Stacking Layer)
 
-Evaluation metric:
+The final stage of the pipeline combines the predictions from the three base models.
+
+Each model produces a probability representing its estimate of the video's likelihood of trending:
+
+- Text Model Probability  
+- Numeric Model Probability  
+- Psychology Model Probability  
+
+These three probability scores are stacked together to form a new feature vector that serves as the input to the **Meta Model**, which is implemented using **Logistic Regression**.
+
+The meta model learns the optimal weighting of each model’s prediction and produces the final output:
 
 ```
-ROC-AUC Score ≈ 0.89
+Text Model Probability
+Numeric Model Probability
+Psychology Model Probability
+           │
+           ▼
+   Logistic Regression Meta Model
+           │
+           ▼
+     Final Trending Probability
 ```
 
-The stacked model significantly improves performance compared to individual models.
+This stacking approach allows the system to integrate **semantic content signals, channel authority metrics, and psychological engagement cues**, resulting in a more robust and accurate prediction model.
 
----
+The final stacked model achieves a **ROC-AUC score of approximately 0.89**, demonstrating strong performance in predicting whether a video is likely to trend.
 
 # Dataset
 
